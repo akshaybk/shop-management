@@ -13,6 +13,7 @@ import summaryRouter from "./routes/summary.routes.js";
 import reportsRouter from "./routes/reports.routes.js";
 import stockAdjustmentsRouter from "./routes/stock-adjustments.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
+import shareholderRouter from "./routes/shareholder.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,6 +42,7 @@ app.use("/api/summary", summaryRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/stock-adjustments", stockAdjustmentsRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/shareholder", shareholderRouter);
 
 app.use((_req, res) => res.status(404).json({ success: false, message: "Route not found" }));
 

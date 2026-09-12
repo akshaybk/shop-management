@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Sales from "./pages/Sales";
+import Purchases from "./pages/Purchases";
 import "./App.css";
 
 const navItems = [
@@ -44,7 +45,7 @@ const AppLayout = () => {
       <div className="app-main"><header className="mobile-topbar"><strong>Shop Management</strong><span>{user?.name}</span></header><Routes>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/sales" element={<Sales />} />
-        <Route path="/purchases" element={<ComingSoon title="Purchases" description="Add incoming stock and record purchase cost." />} />
+        <Route path="/purchases" element={<Purchases />} />
         <Route path="/expenses" element={<ComingSoon title="Expenses" description="Record daily and monthly shop expenses." />} />
         <Route path="/inventory" element={<ComingSoon title="Inventory" description="View current stock and stock movements." />} />
         <Route path="/products" element={<ComingSoon title="Products" description="Manage the product catalogue and selling prices." />} />

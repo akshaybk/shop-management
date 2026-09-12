@@ -5,6 +5,9 @@ import { authenticate } from "../middleware/auth.js";
 const router = Router();
 router.use(authenticate);
 
+// All shops operate in India for this prototype.
+const INDIA_OFFSET_MINUTES = 330;
+
 const canAccessShop = async (user, shopId) => {
   if (user.role === "SUPER_MANAGER") return true;
   if (user.role === "MANAGER") {
@@ -20,24 +23,42 @@ const canAccessShop = async (user, shopId) => {
   return false;
 };
 
-const parseDate = (value, fallback) => {
-  if (!value) return fallback;
+const parseDateParts = (value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return null;
   const [year, month, day] = String(value).split("-").map(Number);
-  const date = new Date(year, month - 1, day);
+  const check = new Date(Date.UTC(year, month - 1, day));
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
   ) return null;
-  return date;
+  return { year, month, day };
 };
 
-const formatDate = (date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const formatDateParts = ({ year, month, day }) =>
+  `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
-const endOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+// Convert an IST calendar date/time boundary to the corresponding UTC instant.
+const indiaDateTimeToUtc = ({ year, month, day }, hour = 0) =>
+  new Date(Date.UTC(year, month - 1, day, hour) - INDIA_OFFSET_MINUTES * 60 * 1000);
+
+const addDays = ({ year, month, day }, days) => {
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+};
+
+const getCurrentIndiaDate = () => {
+  const now = new Date(Date.now() + INDIA_OFFSET_MINUTES * 60 * 1000);
+  return {
+    year: now.getUTCFullYear(),
+    month: now.getUTCMonth() + 1,
+    day: now.getUTCDate(),
+  };
+};
 
 const getStockReport = async (shopId, start, end) => {
   const [purchases, sales, adjustments] = await Promise.all([
@@ -165,10 +186,12 @@ router.get("/daily/:shopId", async (req, res) => {
     if (!Number.isInteger(shopId) || shopId <= 0) return res.status(400).json({ success: false, message: "Invalid shop id" });
     if (!(await canAccessShop(req.user, shopId))) return res.status(403).json({ success: false, message: "You do not have access to this shop" });
 
-    const date = parseDate(req.query.date, new Date());
-    if (!date) return res.status(400).json({ success: false, message: "Invalid date. Use YYYY-MM-DD" });
-    const start = startOfDay(date);
-    const end = endOfDay(date);
+    const dateParts = req.query.date ? parseDateParts(req.query.date) : getCurrentIndiaDate();
+    if (!dateParts) return res.status(400).json({ success: false, message: "Invalid date. Use YYYY-MM-DD" });
+
+    const nextDateParts = addDays(dateParts, 1);
+    const start = indiaDateTimeToUtc(dateParts);
+    const end = indiaDateTimeToUtc(nextDateParts);
 
     const [financial, stock, expenseReport] = await Promise.all([
       getFinancialReport(shopId, start, end),
@@ -182,7 +205,7 @@ router.get("/daily/:shopId", async (req, res) => {
       success: true,
       report: {
         shopId,
-        date: formatDate(start),
+        date: formatDateParts(dateParts),
         ...financial,
         expenses: expenseReport.total,
         expenseBreakdown: expenseReport.breakdown,
@@ -202,13 +225,21 @@ router.get("/monthly/:shopId", async (req, res) => {
     if (!Number.isInteger(shopId) || shopId <= 0) return res.status(400).json({ success: false, message: "Invalid shop id" });
     if (!(await canAccessShop(req.user, shopId))) return res.status(403).json({ success: false, message: "You do not have access to this shop" });
 
-    const month = req.query.month ? String(req.query.month) : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const currentIndiaDate = getCurrentIndiaDate();
+    const month = req.query.month
+      ? String(req.query.month)
+      : `${currentIndiaDate.year}-${String(currentIndiaDate.month).padStart(2, "0")}`;
     if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ success: false, message: "Month must use YYYY-MM format" });
 
     const [year, monthNumber] = month.split("-").map(Number);
-    const start = new Date(year, monthNumber - 1, 1);
-    if (start.getFullYear() !== year || start.getMonth() !== monthNumber - 1) return res.status(400).json({ success: false, message: "Invalid month" });
-    const end = new Date(year, monthNumber, 1);
+    if (monthNumber < 1 || monthNumber > 12) return res.status(400).json({ success: false, message: "Invalid month" });
+
+    const startParts = { year, month: monthNumber, day: 1 };
+    const endParts = monthNumber === 12
+      ? { year: year + 1, month: 1, day: 1 }
+      : { year, month: monthNumber + 1, day: 1 };
+    const start = indiaDateTimeToUtc(startParts);
+    const end = indiaDateTimeToUtc(endParts);
 
     const [financial, stock, expenseReport] = await Promise.all([
       getFinancialReport(shopId, start, end),

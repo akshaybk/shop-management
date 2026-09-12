@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Local prototype schema for the shop-management system.
+// The production version can later move to Supabase/PostgreSQL.
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +8,163 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+}
+
+model User {
+  id                  Int               @id @default(autoincrement())
+  name                String
+  email               String            @unique
+  passwordHash        String
+  role                String            // SUPER_MANAGER | MANAGER | SHAREHOLDER
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  managedShops        ManagerShop[]
+  shareholderShops     ShareholderShop[]
+  stockPurchases      StockPurchase[]
+  sales               Sale[]
+  expenses            Expense[]
+  stockAdjustments    StockAdjustment[]
+}
+
+model Shop {
+  id                  Int               @id @default(autoincrement())
+  name                String
+  location            String?
+  openingBalance      Float             @default(0)
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  managers            ManagerShop[]
+  shareholders        ShareholderShop[]
+  inventory           Inventory[]
+  stockPurchases      StockPurchase[]
+  sales               Sale[]
+  expenses            Expense[]
+  stockAdjustments    StockAdjustment[]
+}
+
+model ManagerShop {
+  managerId           Int
+  shopId              Int
+  assignedAt          DateTime          @default(now())
+
+  manager             User              @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@id([managerId, shopId])
+  @@index([shopId])
+}
+
+model ShareholderShop {
+  shareholderId       Int
+  shopId              Int
+  stakePercentage     Float?
+
+  shareholder         User              @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@id([shareholderId, shopId])
+  @@index([shopId])
+}
+
+model Product {
+  id                  Int               @id @default(autoincrement())
+  name                String
+  category            String?
+  unit                String            @default("piece")
+  sellingPrice        Float             @default(0)
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  inventory           Inventory[]
+  stockPurchases      StockPurchase[]
+  sales               Sale[]
+  stockAdjustments    StockAdjustment[]
+}
+
+model Inventory {
+  id                  Int               @id @default(autoincrement())
+  shopId              Int
+  productId           Int
+  quantity            Int               @default(0)
+  updatedAt           DateTime          @updatedAt
+
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, productId])
+  @@index([productId])
+}
+
+model StockPurchase {
+  id                  Int               @id @default(autoincrement())
+  shopId              Int
+  productId           Int
+  quantity            Int
+  unitCost            Float
+  totalCost           Float
+  purchasedAt         DateTime          @default(now())
+  createdById         Int
+
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([shopId, purchasedAt])
+  @@index([productId, purchasedAt])
+}
+
+model Sale {
+  id                  Int               @id @default(autoincrement())
+  shopId              Int
+  productId           Int
+  quantity            Int
+  unitSellingPrice    Float
+  totalAmount         Float
+  soldAt              DateTime          @default(now())
+  createdById         Int
+
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([shopId, soldAt])
+  @@index([productId, soldAt])
+}
+
+model Expense {
+  id                  Int               @id @default(autoincrement())
+  shopId              Int
+  category            String
+  description         String?
+  amount              Float
+  frequency           String            @default("DAILY") // DAILY | MONTHLY
+  expenseDate         DateTime          @default(now())
+  createdById         Int
+
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([shopId, expenseDate])
+  @@index([shopId, frequency])
+}
+
+model StockAdjustment {
+  id                  Int               @id @default(autoincrement())
+  shopId              Int
+  productId           Int
+  quantityChange      Int
+  reason              String
+  adjustedAt          DateTime          @default(now())
+  createdById         Int
+
+  shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([shopId, adjustedAt])
 }

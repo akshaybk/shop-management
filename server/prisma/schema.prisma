@@ -2,8 +2,10 @@
 // The production version can later move to Supabase/PostgreSQL.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
 }
 
 datasource db {
@@ -130,7 +132,7 @@ model Sale {
 
   shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
   product             Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
-  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy            User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([shopId, soldAt])
   @@index([productId, soldAt])
@@ -147,7 +149,7 @@ model Expense {
   createdById         Int
 
   shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy            User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([shopId, expenseDate])
   @@index([shopId, frequency])
@@ -164,7 +166,7 @@ model StockAdjustment {
 
   shop                Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
   product             Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
-  createdBy           User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy            User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([shopId, adjustedAt])
 }

@@ -32,10 +32,13 @@ const getShopDashboard = async (shopId) => {
   const todayStart = startOfDay();
   const tomorrowStart = startOfNextDay();
 
-  const [sales, purchases, expenses, inventory, recentSales, recentPurchases, recentExpenses] = await Promise.all([
+  const [sales, purchases, expenses, todaySalesAggregate, todayPurchasesAggregate, todayExpensesAggregate, inventory, recentSales, recentPurchases, recentExpenses] = await Promise.all([
     prisma.sale.aggregate({ where: { shopId }, _sum: { totalAmount: true, quantity: true } }),
     prisma.stockPurchase.aggregate({ where: { shopId }, _sum: { totalCost: true, quantity: true } }),
     prisma.expense.aggregate({ where: { shopId }, _sum: { amount: true } }),
+    prisma.sale.aggregate({ where: { shopId, soldAt: { gte: todayStart, lt: tomorrowStart } }, _sum: { totalAmount: true } }),
+    prisma.stockPurchase.aggregate({ where: { shopId, purchasedAt: { gte: todayStart, lt: tomorrowStart } }, _sum: { totalCost: true } }),
+    prisma.expense.aggregate({ where: { shopId, expenseDate: { gte: todayStart, lt: tomorrowStart } }, _sum: { amount: true } }),
     prisma.inventory.findMany({ where: { shopId }, include: { product: true }, orderBy: { updatedAt: "desc" } }),
     prisma.sale.findMany({ where: { shopId, soldAt: { gte: todayStart, lt: tomorrowStart } }, include: { product: true }, orderBy: { soldAt: "desc" }, take: 5 }),
     prisma.stockPurchase.findMany({ where: { shopId, purchasedAt: { gte: todayStart, lt: tomorrowStart } }, include: { product: true }, orderBy: { purchasedAt: "desc" }, take: 5 }),
@@ -47,9 +50,9 @@ const getShopDashboard = async (shopId) => {
   const totalExpenses = expenses._sum.amount ?? 0;
   const balance = shop.openingBalance + totalSales - totalPurchases - totalExpenses;
 
-  const todaySales = recentSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const todayPurchases = recentPurchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
-  const todayExpenses = recentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const todaySales = todaySalesAggregate._sum.totalAmount ?? 0;
+  const todayPurchases = todayPurchasesAggregate._sum.totalCost ?? 0;
+  const todayExpenses = todayExpensesAggregate._sum.amount ?? 0;
 
   return {
     shop: { id: shop.id, name: shop.name, location: shop.location, active: shop.active },

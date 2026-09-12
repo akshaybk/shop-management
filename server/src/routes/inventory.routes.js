@@ -52,9 +52,7 @@ router.get("/:shopId", async (req, res) => {
       });
     }
 
-    const shop = await prisma.shop.findUnique({
-      where: { id: shopId },
-    });
+    const shop = await prisma.shop.findUnique({ where: { id: shopId } });
 
     if (!shop) {
       return res.status(404).json({
@@ -103,6 +101,41 @@ router.get("/:shopId", async (req, res) => {
   }
 });
 
+router.get("/purchases/:shopId", async (req, res) => {
+  try {
+    const shopId = parsePositiveInt(req.params.shopId);
+
+    if (!shopId) {
+      return res.status(400).json({ success: false, message: "Invalid shop id" });
+    }
+
+    if (!await hasShopAccess(req.user, shopId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this shop",
+      });
+    }
+
+    const purchases = await prisma.stockPurchase.findMany({
+      where: { shopId },
+      include: {
+        product: { select: { id: true, name: true, unit: true } },
+        createdBy: { select: { id: true, name: true, role: true } },
+      },
+      orderBy: { purchasedAt: "desc" },
+      take: 50,
+    });
+
+    return res.json({ success: true, purchases });
+  } catch (error) {
+    console.error("Listing purchases failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch purchase history",
+    });
+  }
+});
+
 router.post(
   "/purchase",
   authorizeRoles("SUPER_MANAGER", "MANAGER"),
@@ -132,33 +165,10 @@ router.post(
         prisma.product.findUnique({ where: { id: productId } }),
       ]);
 
-      if (!shop) {
-        return res.status(404).json({
-          success: false,
-          message: "Shop not found",
-        });
-      }
-
-      if (!shop.active) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot purchase stock for an inactive shop",
-        });
-      }
-
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-      }
-
-      if (!product.active) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot purchase an inactive product",
-        });
-      }
+      if (!shop) return res.status(404).json({ success: false, message: "Shop not found" });
+      if (!shop.active) return res.status(400).json({ success: false, message: "Cannot purchase stock for an inactive shop" });
+      if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+      if (!product.active) return res.status(400).json({ success: false, message: "Cannot purchase an inactive product" });
 
       if (!await hasShopAccess(req.user, shopId)) {
         return res.status(403).json({
@@ -171,23 +181,10 @@ router.post(
 
       const result = await prisma.$transaction(async (tx) => {
         const inventory = await tx.inventory.upsert({
-          where: {
-            shopId_productId: {
-              shopId,
-              productId,
-            },
-          },
-          update: {
-            quantity: { increment: quantity },
-          },
-          create: {
-            shopId,
-            productId,
-            quantity,
-          },
-          include: {
-            product: true,
-          },
+          where: { shopId_productId: { shopId, productId } },
+          update: { quantity: { increment: quantity } },
+          create: { shopId, productId, quantity },
+          include: { product: true },
         });
 
         const purchase = await tx.stockPurchase.create({

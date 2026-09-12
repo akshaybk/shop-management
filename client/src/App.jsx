@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Sales from "./pages/Sales";
 import Purchases from "./pages/Purchases";
+import Expenses from "./pages/Expenses";
 import "./App.css";
 
 const navItems = [
@@ -46,7 +47,7 @@ const AppLayout = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/purchases" element={<Purchases />} />
-        <Route path="/expenses" element={<ComingSoon title="Expenses" description="Record daily and monthly shop expenses." />} />
+        <Route path="/expenses" element={<Expenses />} />
         <Route path="/inventory" element={<ComingSoon title="Inventory" description="View current stock and stock movements." />} />
         <Route path="/products" element={<ComingSoon title="Products" description="Manage the product catalogue and selling prices." />} />
         <Route path="/reports" element={<ComingSoon title="Reports" description="Review daily and monthly shop performance." />} />

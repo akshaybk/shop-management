@@ -22,8 +22,15 @@ const canAccessShop = async (user, shopId) => {
 
 const parseDate = (value, fallback) => {
   if (!value) return fallback;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) return null;
+  return date;
 };
 
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -40,7 +47,7 @@ router.get("/daily/:shopId", async (req, res) => {
     }
 
     const date = parseDate(req.query.date, new Date());
-    if (!date) return res.status(400).json({ success: false, message: "Invalid date" });
+    if (!date) return res.status(400).json({ success: false, message: "Invalid date. Use YYYY-MM-DD" });
 
     const dayStart = startOfDay(date);
     const dayEnd = endOfDay(date);
@@ -59,22 +66,22 @@ router.get("/daily/:shopId", async (req, res) => {
     const totalPurchases = purchases._sum.totalCost ?? 0;
     const totalExpenses = expenses._sum.amount ?? 0;
 
-    const before = await Promise.all([
+    const [beforeSales, beforePurchases, beforeExpenses] = await Promise.all([
       prisma.sale.aggregate({ where: { shopId, soldAt: { lt: dayStart } }, _sum: { totalAmount: true } }),
       prisma.stockPurchase.aggregate({ where: { shopId, purchasedAt: { lt: dayStart } }, _sum: { totalCost: true } }),
       prisma.expense.aggregate({ where: { shopId, expenseDate: { lt: dayStart } }, _sum: { amount: true } }),
     ]);
 
     const openingBalance = shop.openingBalance
-      + (before[0]._sum.totalAmount ?? 0)
-      - (before[1]._sum.totalCost ?? 0)
-      - (before[2]._sum.amount ?? 0);
+      + (beforeSales._sum.totalAmount ?? 0)
+      - (beforePurchases._sum.totalCost ?? 0)
+      - (beforeExpenses._sum.amount ?? 0);
 
     return res.json({
       success: true,
       report: {
         shopId,
-        date: dayStart.toISOString().slice(0, 10),
+        date: `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, "0")}-${String(dayStart.getDate()).padStart(2, "0")}`,
         openingBalance,
         sales: { amount: totalSales, quantity: sales._sum.quantity ?? 0 },
         purchases: { amount: totalPurchases, quantity: purchases._sum.quantity ?? 0 },
@@ -99,16 +106,17 @@ router.get("/monthly/:shopId", async (req, res) => {
       return res.status(403).json({ success: false, message: "You do not have access to this shop" });
     }
 
-    const month = req.query.month ? String(req.query.month) : new Date().toISOString().slice(0, 7);
+    const month = req.query.month ? String(req.query.month) : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
     if (!/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ success: false, message: "Month must use YYYY-MM format" });
     }
 
-    const monthStart = new Date(`${month}-01T00:00:00`);
-    if (Number.isNaN(monthStart.getTime()) || monthStart.getUTCMonth() + 1 !== Number(month.slice(5))) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    const monthStart = new Date(year, monthNumber - 1, 1);
+    if (monthStart.getFullYear() !== year || monthStart.getMonth() !== monthNumber - 1) {
       return res.status(400).json({ success: false, message: "Invalid month" });
     }
-    const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1));
+    const monthEnd = new Date(year, monthNumber, 1);
 
     const shop = await prisma.shop.findUnique({ where: { id: shopId } });
     if (!shop) return res.status(404).json({ success: false, message: "Shop not found" });

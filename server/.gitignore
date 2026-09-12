@@ -1,6 +1,11 @@
 node_modules
-# Keep environment variables out of version control
+
+# Environment variables
 .env
 
+# Prisma generated client
 /generated/prisma
-/prisma/dev.db
+
+# Local SQLite database
+*.db
+*.db-journal

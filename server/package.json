@@ -4,8 +4,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "dev": "nodemon --exec tsx src/index.js",
+    "start": "tsx src/index.js"
   },
   "keywords": [],
   "author": "",

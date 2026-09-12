@@ -49,20 +49,21 @@ const Inventory = () => {
   }, [shopId, user]);
 
   const totals = useMemo(() => {
-    const result = inventory.reduce((summary, item) => {
-      summary.items += 1;
-      summary.units += Number(item.quantity || 0);
-      summary.low += item.quantity <= 10 ? 1 : 0;
-      summary.stockValue += Number(item.quantity || 0) * Number(item.sellingPrice || 0);
-      summary.units.add(item.unit);
-      return summary;
-    }, { items: 0, units: 0, low: 0, stockValue: 0, units: new Set() });
+    const summary = { items: 0, totalQuantity: 0, low: 0, stockValue: 0 };
+    const unitSet = new Set();
 
-    const unitList = [...result.units];
+    inventory.forEach((item) => {
+      const quantity = Number(item.quantity || 0);
+      summary.items += 1;
+      summary.totalQuantity += quantity;
+      summary.low += quantity <= 10 ? 1 : 0;
+      summary.stockValue += quantity * Number(item.sellingPrice || 0);
+      if (item.unit) unitSet.add(item.unit);
+    });
+
     return {
-      ...result,
-      totalQuantity: inventory.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-      unitLabel: unitList.length === 1 ? unitList[0] : null,
+      ...summary,
+      unitLabel: unitSet.size === 1 ? [...unitSet][0] : null,
     };
   }, [inventory]);
 

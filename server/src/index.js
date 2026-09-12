@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.routes.js";
 import usersRouter from "./routes/users.routes.js";
 import shopsRouter from "./routes/shops.routes.js";
 import productsRouter from "./routes/products.routes.js";
+import inventoryRouter from "./routes/inventory.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/shops", shopsRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/inventory", inventoryRouter);
 
 app.use((_req, res) => {
   res.status(404).json({

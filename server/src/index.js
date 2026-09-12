@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { prisma } from "./lib/prisma.js";
+import authRouter from "./routes/auth.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +29,8 @@ app.get("/api/health", async (_req, res) => {
     });
   }
 });
+
+app.use("/api/auth", authRouter);
 
 app.use((_req, res) => {
   res.status(404).json({
